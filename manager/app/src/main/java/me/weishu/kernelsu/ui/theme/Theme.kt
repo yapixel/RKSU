@@ -22,6 +22,7 @@ private val LightColorScheme = lightColorScheme(
     tertiary = SECONDARY_LIGHT
 )
 
+@ExperimentalMaterial3ExpressiveApi
 @Composable
 fun KernelSUTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
