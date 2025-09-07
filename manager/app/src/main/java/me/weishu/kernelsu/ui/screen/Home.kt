@@ -40,6 +40,7 @@ import me.weishu.kernelsu.*
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.component.rememberConfirmDialog
 import me.weishu.kernelsu.ui.component.KsuIsValid
+import me.weishu.kernelsu.ui.component.KsuGetVersion
 import me.weishu.kernelsu.ui.util.*
 import me.weishu.kernelsu.ui.util.module.LatestVersionInfo
 
@@ -73,8 +74,7 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val isManager = Natives.becomeManager(ksuApp.packageName)
-            val ksuVersion = if (isManager) Natives.version else null
+            val ksuVersion = KsuGetVersion()
             val lkmMode = ksuVersion?.let {
                 if (it >= Natives.MINIMAL_SUPPORTED_KERNEL_LKM && kernelVersion.isGKI()) Natives.isLkmMode else null
             }
@@ -82,7 +82,7 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             StatusCard(kernelVersion, ksuVersion, lkmMode) {
                 navigator.navigate(InstallScreenDestination)
             }
-            if (isManager && Natives.requireNewKernel()) {
+            if (ksuVersion != null && Natives.requireNewKernel()) {
                 WarningCard(
                     stringResource(id = R.string.require_kernel_version).format(
                         ksuVersion, Natives.MINIMAL_SUPPORTED_KERNEL
@@ -254,6 +254,11 @@ private fun StatusCard(
                         true -> " <LKM>"
                         else -> " <GKI>"
                     }
+                    
+                    val hookMode = when (Natives.isKprobeMode) {
+                    	true -> "Kprobe"
+                    	else -> "Manual"
+                    }
 
                     val workingText =
                         "${stringResource(id = R.string.home_working)}$workingMode$safeMode"
@@ -280,6 +285,14 @@ private fun StatusCard(
                             text = stringResource(R.string.home_module_count, getModuleCount()),
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        if (KsuGetVersion() >= 12272) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.home_hook_mode, "$hookMode"),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        
                     }
                 }
 

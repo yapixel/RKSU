@@ -15,6 +15,7 @@
     <string name="home_manager_version">Manager version</string>
     <string name="home_fingerprint">Fingerprint</string>
     <string name="home_selinux_status">SELinux status</string>
+    <string name="home_hook_mode">Hook mode: %s</string>
     <string name="selinux_status_disabled">Disabled</string>
     <string name="selinux_status_enforcing">Enforcing</string>
     <string name="selinux_status_permissive">Permissive</string>

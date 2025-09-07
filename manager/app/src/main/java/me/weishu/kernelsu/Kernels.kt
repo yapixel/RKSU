@@ -1,6 +1,8 @@
 package me.weishu.kernelsu
 
 import android.system.Os
+import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.component.KsuGetVersion
 
 /**
  * @author weishu
@@ -13,6 +15,10 @@ data class KernelVersion(val major: Int, val patchLevel: Int, val subLevel: Int)
     }
 
     fun isGKI(): Boolean {
+        // kernel driver-based detection
+        if (KsuGetVersion() >= 12272) {
+            return Natives.isRealGKI
+        }
 
         // kernel 6.x
         if (major > 5) {

@@ -13,6 +13,7 @@
     <string name="home_manager_version">Versi manager</string>
     <string name="home_fingerprint">Identitas</string>
     <string name="home_selinux_status">Status SELinux</string>
+    <string name="home_hook_mode">Mode hook: %s</string>
     <string name="selinux_status_disabled">Nonaktif</string>
     <string name="selinux_status_enforcing">Enforcing</string>
     <string name="selinux_status_permissive">Permissive</string>
