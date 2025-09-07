@@ -285,7 +285,7 @@ private fun StatusCard(
                             text = stringResource(R.string.home_module_count, getModuleCount()),
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        if (KsuGetVersion() >= 12272) {
+                        if (ksuVersion >= 12272) {
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = stringResource(R.string.home_hook_mode, "$hookMode"),
