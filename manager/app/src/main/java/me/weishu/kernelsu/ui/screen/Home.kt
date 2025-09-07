@@ -74,7 +74,7 @@ fun HomeScreen(navigator: DestinationsNavigator) {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val ksuVersion = KsuGetVersion()
+            val ksuVersion: Int? = KsuGetVersion()
             val lkmMode = ksuVersion?.let {
                 if (it >= Natives.MINIMAL_SUPPORTED_KERNEL_LKM && kernelVersion.isGKI()) Natives.isLkmMode else null
             }
