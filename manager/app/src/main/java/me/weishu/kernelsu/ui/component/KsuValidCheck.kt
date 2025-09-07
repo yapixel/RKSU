@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.ksuApp
 
-fun KsuGetVersion(): Int {
+fun KsuGetVersion(): Int? {
     val isManager = Natives.becomeManager(ksuApp.packageName)
     val ksuVersion = if (isManager) Natives.version else null
     return ksuVersion

@@ -2,7 +2,7 @@ package me.weishu.kernelsu
 
 import android.system.Os
 import me.weishu.kernelsu.Natives
-import me.weishu.kernelsu.component.KsuGetVersion
+import me.weishu.kernelsu.ui.component.KsuGetVersion
 
 /**
  * @author weishu
