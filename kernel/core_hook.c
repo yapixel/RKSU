@@ -133,15 +133,17 @@ static void disable_seccomp(struct task_struct *tsk)
 #ifdef CONFIG_SECCOMP
 	tsk->seccomp.mode = 0;
 	if (tsk->seccomp.filter) {
-	// TODO: Add kernel 6.11+ support
+	
+	// 6.10.10+ must have PF_EXITING flag, so, to get around it, we just free it.
 	// 5.9+ have filter_count and use seccomp_filter_release
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 		seccomp_filter_release(tsk);
 		atomic_set(&tsk->seccomp.filter_count, 0);
+		return;
 #else
 		put_seccomp_filter(tsk);
-		tsk->seccomp.filter = NULL;
 #endif
+		tsk->seccomp.filter = NULL;
 	}
 #endif
 }
