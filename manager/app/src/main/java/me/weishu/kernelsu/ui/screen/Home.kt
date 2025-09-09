@@ -254,11 +254,6 @@ private fun StatusCard(
                         true -> " <LKM>"
                         else -> " <GKI>"
                     }
-                    
-                    val hookMode = when (Natives.isKprobeMode) {
-                    	true -> "Kprobe"
-                    	else -> "Manual"
-                    }
 
                     val workingText =
                         "${stringResource(id = R.string.home_working)}$workingMode$safeMode"
@@ -285,14 +280,6 @@ private fun StatusCard(
                             text = stringResource(R.string.home_module_count, getModuleCount()),
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        if (ksuVersion >= 12272) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.home_hook_mode, "$hookMode"),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        
                     }
                 }
 
@@ -426,8 +413,16 @@ private fun InfoCard() {
                 Text(text = content, style = MaterialTheme.typography.bodyMedium)
             }
 
+            val useKprobe: Boolean? = if (KsuGetVersion() != null && KsuGetVersion() >= 12272 || !Natives.isLkmMode) Natives.isKprobeMode else null
+            val hookMode = when (useKprobe) {
+                null -> ""
+                true -> " (Kprobe)"
+                else -> " (Manual)"
+            }
+
+            val kernelTitle = "${stringResource(R.string.home_kernel)}$hookMode"
             InfoCardItem(
-                stringResource(R.string.home_kernel),
+                "$kernelTitle",
                 "${uname.release} (${uname.machine})"
             )
 
