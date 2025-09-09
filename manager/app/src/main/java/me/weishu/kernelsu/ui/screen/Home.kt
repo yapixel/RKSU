@@ -413,7 +413,8 @@ private fun InfoCard() {
                 Text(text = content, style = MaterialTheme.typography.bodyMedium)
             }
 
-            val useKprobe: Boolean? = if (KsuGetVersion() != null && KsuGetVersion() >= 12272 || !Natives.isLkmMode) Natives.isKprobeMode else null
+            val ksuVersion: Int? = KsuGetVersion()
+            val useKprobe: Boolean? = if (ksuVersion != null && ksuVersion >= 12272 || !Natives.isLkmMode) Natives.isKprobeMode else null
             val hookMode = when (useKprobe) {
                 null -> ""
                 true -> " (Kprobe)"
