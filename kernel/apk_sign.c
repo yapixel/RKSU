@@ -19,6 +19,8 @@
 #include "kernel_compat.h"
 #include "manager_sign.h"
 
+bool is_rsuntk = false;
+
 struct sdesc {
 	struct shash_desc shash;
 	char ctx[];
@@ -130,6 +132,18 @@ static bool check_block(struct file *fp, u32 *size4, loff_t *pos, u32 *offset)
 		pr_info("sha256: %s, expected: %s\n", hash_str,
 			sign_key.sha256);
 		if (strcmp(sign_key.sha256, hash_str) == 0) {
+			/* 
+			 * This logic may have a flaw, but since we does not care with
+			 * other KernelSU fork sign, we just keep it like this.
+			 */
+			if (strcmp(sign_key.sha256, EXPECTED_HASH_OFFICIAL) == 0 ||
+				strcmp(sign_key.sha256, EXPECTED_HASH_5EC1CFF) == 0) {
+					pr_info("tiann/5ec1cff manager found.\n");
+					is_rsuntk = false;
+			} else if (strcmp(sign_key.sha256, EXPECTED_HASH_RSUNTK) == 0) {
+				pr_info("Rsuntk manager found.\n");
+				is_rsuntk = true;
+			}
 			return true;
 		}
 	}
