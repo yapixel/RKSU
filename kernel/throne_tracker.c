@@ -7,6 +7,7 @@
 #include <linux/version.h>
 #include <linux/stat.h>
 #include <linux/namei.h>
+#include <linux/spinlock_types.h>
 #include <asm/atomic.h>
 
 #include "allowlist.h"
@@ -20,6 +21,7 @@ uid_t ksu_manager_uid = KSU_INVALID_UID;
 
 static atomic_t pkg_lock = ATOMIC_INIT(0);
 static atomic_t scan_lock = ATOMIC_INIT(0);
+static DEFINE_SPINLOCK(throne_tracker_lock);
 
 #define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list.tmp"
 #define USER_DATA_PATH "/data/user_de/0"
@@ -428,6 +430,7 @@ void track_throne(void)
 	int ret = 0;
 	INIT_LIST_HEAD(&uid_list);
 
+	spin_lock(&throne_tracker_lock);
 	pr_info("Scanning %s directory..\n", USER_DATA_PATH);
 	ret = scan_user_data_for_uids(&uid_list);
 	if (ret < 0 && atomic_read(&scan_lock) != 1) {
@@ -435,6 +438,7 @@ void track_throne(void)
 		fp = ksu_filp_open_compat(SYSTEM_PACKAGES_LIST_PATH, O_RDONLY, 0);
 		if (IS_ERR(fp)) {
 			pr_err("%s: open " SYSTEM_PACKAGES_LIST_PATH " failed: %ld\n", __func__, PTR_ERR(fp));
+			spin_unlock(&throne_tracker_lock);
 			return;
 		}
 		
@@ -462,6 +466,7 @@ void track_throne(void)
 				kzalloc(sizeof(struct uid_data), GFP_ATOMIC);
 			if (!data) {
 				filp_close(fp, 0);
+				spin_unlock(&throne_tracker_lock);
 				goto out;
 			}
 
@@ -489,10 +494,11 @@ void track_throne(void)
 	} else if (atomic_read(&pkg_lock) != 1) {
 		pr_info("Scanned %zu package(s) from user data directory.\n", list_count_nodes(&uid_list));
 		if (atomic_read(&scan_lock) != 1) {
-			pr_info("%s: locking to only read %s directory.\n", __func__, USER_DATA_PATH); 
+			pr_info("%s: locking to only scan %s directory.\n", __func__, USER_DATA_PATH); 
 			atomic_set(&scan_lock, 1);
 		}
 	}
+	spin_unlock(&throne_tracker_lock);
 
 	// now update uid list
 	struct uid_data *np;
