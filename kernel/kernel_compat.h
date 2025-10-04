@@ -8,12 +8,10 @@
 #include "linux/key.h"
 #include <linux/list.h>
 
-#if defined(CONFIG_X86)
-#define kcompat_barrier() barrier_nospec()
-#elif defined(CONFIG_ARM) || defined(CONFIG_ARM64)
-#define kcompat_barrier() isb() // arch/arm64/include/asm/barrier.h
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+#define kcompat_barrier() do { barrier(); isb(); } while (0)
 #else
-#define kcompat_barrier() barrier() // well, compiler atleast.
+#define kcompat_barrier() barrier()
 #endif
 
 /*
