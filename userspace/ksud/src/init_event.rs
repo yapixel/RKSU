@@ -1,28 +1,11 @@
 use crate::defs::{KSU_MOUNT_SOURCE, NO_MOUNT_PATH, NO_TMPFS_PATH};
 use crate::module::{handle_updated_modules, prune_modules};
+use crate::utils::find_tmp_path;
 use crate::{assets, defs, ksucalls, restorecon, utils};
 use anyhow::{Context, Result};
 use log::{info, warn};
 use rustix::fs::{MountFlags, mount};
 use std::path::Path;
-
-// https://github.com/tiann/KernelSU/blob/v0.9.5/userspace/ksud/src/mount.rs#L158
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn mount_tmpfs(dest: impl AsRef<Path>) -> Result<()> {
-    mount(
-        KSU_MOUNT_SOURCE,
-        dest.as_ref(),
-        "tmpfs",
-        MountFlags::empty(),
-        "",
-    )?;
-    Ok(())
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn mount_tmpfs(dest: impl AsRef<Path>) -> Result<()> {
-    unimplemented!()
-}
 
 pub fn on_post_data_fs() -> Result<()> {
     ksucalls::report_post_fs_data();
@@ -85,9 +68,19 @@ pub fn on_post_data_fs() -> Result<()> {
         warn!("apply root profile sepolicy failed: {}", e);
     }
 
+    let tmpfs_path = find_tmp_path();
+    // for compatibility
+    let no_mount = Path::new(NO_TMPFS_PATH).exists() || Path::new(NO_MOUNT_PATH).exists();
+
     // mount temp dir
-    if !Path::new(NO_TMPFS_PATH).exists() {
-        if let Err(e) = mount_tmpfs(utils::get_tmp_path()) {
+    if !no_mount {
+        if let Err(e) = mount(
+            KSU_MOUNT_SOURCE,
+            &tmpfs_path,
+            "tmpfs",
+            MountFlags::empty(),
+            "",
+        ) {
             warn!("do temp dir mount failed: {}", e);
         }
     } else {
@@ -106,9 +99,10 @@ pub fn on_post_data_fs() -> Result<()> {
     }
 
     // mount module systemlessly by magic mount
-    if !Path::new(NO_MOUNT_PATH).exists() {
-        if let Err(e) = mount_modules_systemlessly() {
-            warn!("do systemless mount failed: {}", e);
+    #[cfg(target_os = "android")]
+    if !no_mount {
+        if let Err(e) = crate::magic_mount::magic_mount(&tmpfs_path) {
+            warn!("do systemless mount failed: {e}");
         }
     } else {
         info!("no mount requested");
@@ -121,7 +115,7 @@ pub fn on_post_data_fs() -> Result<()> {
 
 #[cfg(target_os = "android")]
 pub fn mount_modules_systemlessly() -> Result<()> {
-    crate::magic_mount::magic_mount()
+    crate::magic_mount::magic_mount(&find_tmp_path())
 }
 
 #[cfg(not(target_os = "android"))]
