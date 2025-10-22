@@ -17,14 +17,6 @@ ccflags-y += -I$(objtree)/security/selinux -include $(srctree)/include/uapi/asm-
 
 obj-$(CONFIG_KSU) += kernelsu.o
 
-IS_KERNEL_69 := $(strip $(shell \
-    if [ "$(VERSION)" -ge "6" -a "$(PATCHLEVEL)" -ge "9" ]; then \
-      echo TRUE; \
-    else \
-      echo FALSE; \
-    fi \
-  ))
-
 ccflags-y += -DKSU_VERSION=12311
 
 # Checks hooks state
