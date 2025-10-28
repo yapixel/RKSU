@@ -18,21 +18,29 @@
 
 uid_t ksu_manager_uid = KSU_INVALID_UID;
 
-static atomic_t pkg_lock = ATOMIC_INIT(0);
 static atomic_t scan_lock = ATOMIC_INIT(0);
+static atomic_t pkg_lock = ATOMIC_INIT(0);
+
+static bool is_pkg_lock(void) {
+	return atomic_read(&pkg_lock) == 1;
+}
+static bool is_scan_lock(void) {
+	return atomic_read(&scan_lock) == 1;
+}
+static void set_pkg_lock(void) {
+	atomic_set(&pkg_lock, 1);
+}
+static void set_scan_lock(void) {
+	atomic_set(&scan_lock, 1);
+}
 
 #define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list.tmp"
 #define USER_DATA_PATH "/data/user_de/0"
 #define USER_DATA_PATH_LEN 288
 
-struct uid_scan_stats {
-	size_t errors_encountered;
-};
-
 struct user_data_context {
 	struct dir_context ctx;
 	struct list_head *uid_list;
-	struct uid_scan_stats *stats;
 };
 
 struct uid_data {
@@ -164,8 +172,6 @@ FILLDIR_RETURN_TYPE user_data_actor(struct dir_context *ctx, const char *name,
 
 	if (namelen >= KSU_MAX_PACKAGE_NAME) {
 		pr_warn("Package name too long: %.*s\n", namelen, name);
-		if (my_ctx->stats)
-			my_ctx->stats->errors_encountered++;
 		return FILLDIR_ACTOR_CONTINUE;
 	}
 
@@ -173,8 +179,6 @@ FILLDIR_RETURN_TYPE user_data_actor(struct dir_context *ctx, const char *name,
 	if (snprintf(package_path, sizeof(package_path), "%s/%.*s",
 		     USER_DATA_PATH, namelen, name) >= sizeof(package_path)) {
 		pr_err("Path too long for package: %.*s\n", namelen, name);
-		if (my_ctx->stats)
-			my_ctx->stats->errors_encountered++;
 		return FILLDIR_ACTOR_CONTINUE;
 	}
 
@@ -182,8 +186,6 @@ FILLDIR_RETURN_TYPE user_data_actor(struct dir_context *ctx, const char *name,
 	int err = kern_path(package_path, LOOKUP_FOLLOW, &path);
 	if (err) {
 		pr_debug("Package path lookup failed: %s (err: %d)\n", package_path, err);
-		if (my_ctx->stats)
-			my_ctx->stats->errors_encountered++;
 		return FILLDIR_ACTOR_CONTINUE;
 	}
 
@@ -197,24 +199,18 @@ FILLDIR_RETURN_TYPE user_data_actor(struct dir_context *ctx, const char *name,
 
 	if (err) {
 		pr_debug("Failed to get attributes for: %s (err: %d)\n", package_path, err);
-		if (my_ctx->stats)
-			my_ctx->stats->errors_encountered++;
 		return FILLDIR_ACTOR_CONTINUE;
 	}
 
 	uid_t uid = from_kuid(&init_user_ns, stat.uid);
 	if (uid == (uid_t)-1) {
 		pr_warn("Invalid UID for package: %.*s\n", namelen, name);
-		if (my_ctx->stats)
-			my_ctx->stats->errors_encountered++;
 		return FILLDIR_ACTOR_CONTINUE;
 	}
 
 	struct uid_data *data = kzalloc(sizeof(struct uid_data), GFP_ATOMIC);
 	if (!data) {
 		pr_err("Failed to allocate memory for package: %.*s\n", namelen, name);
-		if (my_ctx->stats)
-			my_ctx->stats->errors_encountered++;
 		return FILLDIR_ACTOR_CONTINUE;
 	}
 
@@ -231,8 +227,6 @@ FILLDIR_RETURN_TYPE user_data_actor(struct dir_context *ctx, const char *name,
 static int scan_user_data_for_uids(struct list_head *uid_list)
 {
 	struct file *dir_file;
-	struct uid_scan_stats stats = {0};
-	int ret = 0;
 
 	if (!uid_list) {
 		return -EINVAL;
@@ -240,25 +234,30 @@ static int scan_user_data_for_uids(struct list_head *uid_list)
 
 	dir_file = ksu_filp_open_compat(USER_DATA_PATH, O_RDONLY, 0);
 	if (IS_ERR(dir_file)) {
-		pr_err("Failed to open %s, err: (%ld)\n", USER_DATA_PATH, PTR_ERR(dir_file));
+		pr_err("Failed to open %s, err: %ld\n", USER_DATA_PATH, PTR_ERR(dir_file));
 		return PTR_ERR(dir_file);
 	}
 
 	struct user_data_context ctx = {
 		.ctx.actor = user_data_actor,
 		.uid_list = uid_list,
-		.stats = &stats
 	};
 
-	ret = iterate_dir(dir_file, &ctx.ctx);
+	iterate_dir(dir_file, &ctx.ctx);
 	filp_close(dir_file, NULL);
 
-	// if 0 errors, that means everything were fine.
-	if (stats.errors_encountered > 0) {
-		pr_info("Got %zu error(s) while scanning %s directory.\n",
-			stats.errors_encountered, USER_DATA_PATH);
-	}
-	return ret;
+	return 0;
+}
+
+static inline void print_iter(bool is_manager, char *dirpath)
+{
+#ifdef CONFIG_KSU_DEBUG
+	pr_info("Found new base.apk at path: %s, is_manager: %d\n",
+		dirpath, is_manager);
+#else
+	if (is_manager)
+		pr_info("Found KernelSU base.apk at %s\n", dirpath);
+#endif
 }
 
 FILLDIR_RETURN_TYPE my_actor(struct dir_context *ctx, const char *name,
@@ -322,8 +321,7 @@ FILLDIR_RETURN_TYPE my_actor(struct dir_context *ctx, const char *name,
 			}
 
 			bool is_manager = is_manager_apk(dirpath);
-			pr_info("Found new base.apk at path: %s, is_manager: %d\n",
-				dirpath, is_manager);
+			print_iter(is_manager, dirpath);
 			if (is_manager) {
 				crown_manager(dirpath, my_ctx->private_data);
 				*my_ctx->stop = 1;
@@ -434,7 +432,7 @@ void track_throne(void)
 
 	pr_info("Scanning %s directory..\n", USER_DATA_PATH);
 	ret = scan_user_data_for_uids(&uid_list);
-	if (ret < 0 && atomic_read(&scan_lock) != 1) {
+	if (ret != 0 && !is_scan_lock()) {
 		pr_warn("Failed to scan %s directory, falling back to packages.list.tmp\n", USER_DATA_PATH);
 		fp = ksu_filp_open_compat(SYSTEM_PACKAGES_LIST_PATH, O_RDONLY, 0);
 		if (IS_ERR(fp)) {
@@ -442,9 +440,9 @@ void track_throne(void)
 			return;
 		}
 		
-		if (atomic_read(&pkg_lock) != 1) {
-			pr_info("%s: locking to only read packages.list.tmp\n", __func__);
-			atomic_set(&pkg_lock, 1);
+		if (!is_pkg_lock()) {
+			pr_info_once("%s: locking to only read packages.list.tmp\n", __func__);
+			set_pkg_lock();
 		}
 
 		char chr = 0;
@@ -490,12 +488,18 @@ void track_throne(void)
 			line_start = pos;
 		}
 		filp_close(fp, 0);
-	} else if (atomic_read(&pkg_lock) != 1) {
+	} else if (!is_pkg_lock()) {
 		pr_info("Scanned %zu package(s) from user data directory.\n", list_count_nodes(&uid_list));
-		if (atomic_read(&scan_lock) != 1) {
-			pr_info("%s: locking to only read %s directory.\n", __func__, USER_DATA_PATH); 
-			atomic_set(&scan_lock, 1);
+		if (!is_scan_lock()) {
+			pr_info_once("%s: locking to only read %s directory.\n", __func__, USER_DATA_PATH); 
+			set_scan_lock();
 		}
+	}
+	
+	// Precautions, incase both of them failed.
+	if (!is_pkg_lock() && !is_scan_lock()) {
+		pr_err("Failed to read %s or %s\n", SYSTEM_PACKAGES_LIST_PATH, USER_DATA_PATH);
+		return;
 	}
 
 	// now update uid list
