@@ -183,7 +183,11 @@ static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
 					  NULL);
 }
 
+#ifdef CONFIG_COMPAT
 static struct kprobe *su_kps[5];
+#else
+static struct kprobe *su_kps[3];
+#endif
 
 static struct kprobe *init_kprobe(const char *name,
 				  kprobe_pre_handler_t handler)
@@ -221,10 +225,12 @@ void ksu_sucompat_init(void)
 {
 #ifdef CONFIG_KSU_KPROBES_HOOK
 	su_kps[0] = init_kprobe(SYS_EXECVE_SYMBOL, execve_handler_pre);
-	su_kps[1] = init_kprobe(SYS_EXECVE_COMPAT_SYMBOL, execve_handler_pre);
-	su_kps[2] = init_kprobe(SYS_FACCESSAT_SYMBOL, faccessat_handler_pre);
-	su_kps[3] = init_kprobe(SYS_NEWFSTATAT_SYMBOL, newfstatat_handler_pre);
+	su_kps[1] = init_kprobe(SYS_FACCESSAT_SYMBOL, faccessat_handler_pre);
+	su_kps[2] = init_kprobe(SYS_NEWFSTATAT_SYMBOL, newfstatat_handler_pre);
+#ifdef CONFIG_COMPAT
+	su_kps[3] = init_kprobe(SYS_EXECVE_COMPAT_SYMBOL, execve_handler_pre);
 	su_kps[4] = init_kprobe(SYS_FSTATAT64_SYMBOL, newfstatat_handler_pre);
+#endif
 #else
 	ksu_sucompat_hook_state = true;
 	pr_info("ksu_sucompat init\n");
