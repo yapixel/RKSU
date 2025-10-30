@@ -34,7 +34,7 @@ static void set_scan_lock(void) {
 	atomic_set(&scan_lock, 1);
 }
 
-#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list.tmp"
+#define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list"
 #define USER_DATA_PATH "/data/user_de/0"
 #define USER_DATA_PATH_LEN 288
 
