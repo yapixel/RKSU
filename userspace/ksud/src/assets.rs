@@ -9,7 +9,11 @@ pub const RESETPROP_PATH: &str = concatcp!(BINARY_DIR, "resetprop");
 pub const BUSYBOX_PATH: &str = concatcp!(BINARY_DIR, "busybox");
 pub const BOOTCTL_PATH: &str = concatcp!(BINARY_DIR, "bootctl");
 
-// IF NOT x86_64 ANDROID, ie. macos, linux, windows, always use aarch64
+#[cfg(all(target_arch = "x86_64", target_os = "android"))]
+#[derive(RustEmbed)]
+#[folder = "bin/x86_64"]
+struct Asset;
+
 #[cfg(all(target_arch = "aarch64", target_os = "android"))]
 #[derive(RustEmbed)]
 #[folder = "bin/aarch64"]

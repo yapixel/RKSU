@@ -60,7 +60,7 @@ Older kernels (4.4+) are also compatible, but the kernel will have to be built m
 
 With more backports, KernelSU can supports 3.x kernel (3.4-3.18).
 
-Currently, only `arm64-v8a` and `armeabi-v7a` are supported.
+Currently, only `arm64-v8a`, `x86_64` and `armeabi-v7a` are supported.
 
 ## Usage
 
