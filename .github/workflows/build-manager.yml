@@ -1,4 +1,4 @@
-name: Build Manager
+name: Build Manager (main)
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/build-manager.yml'
       - '.github/workflows/build-manager-common.yml'
+      - '.github/workflows/build-ksud.yml'
+      - '.github/workflows/build-lkm.yml'
+      - '.github/workflows/ddk-lkm.yml'
       - 'manager/**'
       - 'kernel/**'
       - 'userspace/ksud/**'
@@ -16,13 +19,20 @@ on:
   workflow_call:
 
 jobs:
+  build-lkm:
+    uses: ./.github/workflows/build-lkm.yml
+    secrets: inherit
+
   build-ksud:
+    needs: build-lkm
     strategy:
       matrix:
         include:
           - target: aarch64-linux-android
             os: ubuntu-latest
           - target: armv7-linux-androideabi
+            os: ubuntu-latest
+          - target: x86_64-linux-android
             os: ubuntu-latest
     uses: ./.github/workflows/ksud.yml
     with:
@@ -34,9 +44,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - spoofed: false
-          - spoofed: true
+          - manager_type: normal
+          - manager_type: spoofed
     uses: ./.github/workflows/build-manager-common.yml
     secrets: inherit
     with:
-      spoofed: ${{ matrix.spoofed }}
+      manager_type: ${{ matrix.manager_type }}

@@ -22,29 +22,6 @@
 #error "LKM mode is not supported on Linux 6.8+, aborting build."
 #endif
 
-/**
- * list_count_nodes - count the number of nodes in a list
- * the head of the list
- * 
- * Returns the number of nodes in the list
- */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
-static inline size_t list_count_nodes(const struct list_head *head)
-{
-	const struct list_head *pos;
-	size_t count = 0;
-
-	if (!head)
-		return 0;
-
-	list_for_each(pos, head) {
-		count++;
-	}
-	
-	return count;
-}
-#endif
-
 /*
  * Adapt to Huawei HISI kernel without affecting other kernels ,
  * Huawei Hisi Kernel EBITMAP Enable or Disable Flag ,

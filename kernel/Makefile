@@ -18,37 +18,36 @@ ccflags-y += -I$(objtree)/security/selinux -include $(srctree)/include/uapi/asm-
 
 obj-$(CONFIG_KSU) += kernelsu.o
 
-IS_KERNEL_69 := $(strip $(shell \
-    if [ "$(VERSION)" -ge "6" -a "$(PATCHLEVEL)" -ge "9" ]; then \
-      echo TRUE; \
-    else \
-      echo FALSE; \
-    fi \
-  ))
+KDIR := $(KDIR)
+MDIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
-# https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=b1992c3772e69a6fd0e3fc81cd4d2820c8b6eca0
-ifeq ($(IS_KERNEL_69),TRUE)
-SRC_LOCATION := $(src)
-else
-SRC_LOCATION := $(srctree)/$(src)
+$(info -- KDIR: $(KDIR))
+$(info -- MDIR: $(MDIR))
+
+# Check if this is a git repository
+# For in-tree build: check $(srctree)/$(src)/../.git
+# For out-of-tree build: check $(MDIR)/../.git
+ifeq ($(shell test -e $(srctree)/$(src)/../.git && echo "in-tree"),in-tree)
+# In-tree build (git submodule)
+$(shell cd $(srctree)/$(src); /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin [ -f ../.git/shallow ] && git fetch --unshallow)
+KSU_GIT_VERSION := $(shell cd $(srctree)/$(src); /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git rev-list --count HEAD)
+KSU_GIT_VERSION_VALID := 1
+else ifeq ($(shell test -e $(MDIR)/../.git && echo "out-of-tree"),out-of-tree)
+# Out-of-tree build (standalone repository)
+$(shell cd $(MDIR); /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin [ -f ../.git/shallow ] && git fetch --unshallow)
+KSU_GIT_VERSION := $(shell cd $(MDIR); /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git rev-list --count HEAD)
+KSU_GIT_VERSION_VALID := 1
 endif
 
-GIT_TOOL := /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git
-
-# Check for both https & ssh remote
-REMOTE_CHECK := $(shell cd $(SRC_LOCATION); $(GIT_TOOL) remote -v | grep -E 'github\.com[/:]rsuntk/KernelSU')
-
-ifneq ($(REMOTE_CHECK),)
-ifeq ($(shell cd $(SRC_LOCATION); $(GIT_TOOL) rev-parse --is-shallow-repository),true)
-$(shell cd $(SRC_LOCATION); $(GIT_TOOL) fetch --unshallow)
-endif
-KSU_GIT_VERSION := $(shell cd $(SRC_LOCATION); $(GIT_TOOL) rev-list --count HEAD)
+# Calculate version if git version is available
+ifdef KSU_GIT_VERSION_VALID
 # ksu_version: major * 10000 + git version + 200 for historical reasons
 $(eval KSU_VERSION=$(shell expr 10000 + $(KSU_GIT_VERSION) + 200))
 $(info -- KernelSU version: $(KSU_VERSION))
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
-else # Pass default version if the defined remote is not found
-$(warning "KSU_GIT_VERSION not defined! It is better to make KernelSU a git submodule!")
+else
+# If there is no .git directory, use default version
+$(warning "KSU_GIT_VERSION not defined! It is better to make KernelSU a git repository!")
 ccflags-y += -DKSU_VERSION=16
 endif
 
@@ -84,9 +83,6 @@ endif
 ifeq ($(shell grep -q "inode_security_struct\s\+\*selinux_inode" $(srctree)/security/selinux/include/objsec.h; echo $$?),0)
 ccflags-y += -DKSU_OPTIONAL_SELINUX_INODE
 endif
-ifeq ($(shell grep -A1 "^int vfs_getattr" $(srctree)/fs/stat.c | grep -q "query_flags"; echo $$?),0)
-ccflags-y += -DKSU_HAS_NEW_VFS_GETATTR
-endif
 
 # Checks Samsung
 ifeq ($(shell grep -q "CONFIG_KDP_CRED" $(srctree)/kernel/cred.c; echo $$?),0)
@@ -115,5 +111,12 @@ $(info -- Supported KernelSU Manager(s): tiann, rsuntk, 5ec1cff)
 
 ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat
 ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
+
+all:
+	make -C $(KDIR) M=$(MDIR) modules
+compdb:
+	python3 $(MDIR)/.vscode/generate_compdb.py -O $(KDIR) $(MDIR)
+clean:
+	make -C $(KDIR) M=$(MDIR) clean
 
 # Keep a new line here!! Because someone may append config
