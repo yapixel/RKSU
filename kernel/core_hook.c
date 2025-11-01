@@ -187,8 +187,7 @@ void escape_to_root(void)
 	// setup capabilities
 	// we need CAP_DAC_READ_SEARCH becuase `/data/adb/ksud` is not accessible for non root process
 	// we add it here but don't add it to cap_inhertiable, it would be dropped automaticly after exec!
-	u64 cap_for_ksud =
-		profile->capabilities.effective | CAP_DAC_READ_SEARCH;
+	u64 cap_for_ksud = profile->capabilities.effective | CAP_DAC_READ_SEARCH;
 	memcpy(&newcreds->cap_effective, &cap_for_ksud,
 	       sizeof(newcreds->cap_effective));
 	memcpy(&newcreds->cap_permitted, &profile->capabilities.effective,
@@ -206,9 +205,9 @@ void escape_to_root(void)
 	setup_selinux(profile->selinux_domain);
 }
 
-#ifdef CONFIG_EXT4_FS
 static void nuke_ext4_sysfs(void) 
 {
+#ifdef CONFIG_EXT4_FS
 	struct path path;
 	int err = kern_path("/data/adb/modules", 0, &path);
 	if (err) {
@@ -226,12 +225,8 @@ static void nuke_ext4_sysfs(void)
 
 	ext4_unregister_sysfs(sb);
 	path_put(&path);
-}
-#else
-static inline void nuke_ext4_sysfs(void)
-{
-}
 #endif
+}
 
 int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
 		     unsigned long arg4, unsigned long arg5)
