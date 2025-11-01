@@ -18,30 +18,7 @@
 
 uid_t ksu_manager_uid = KSU_INVALID_UID;
 
-static atomic_t scan_lock = ATOMIC_INIT(0);
-static atomic_t pkg_lock = ATOMIC_INIT(0);
-
-static bool is_pkg_lock(void) {
-	return atomic_read(&pkg_lock) == 1;
-}
-static bool is_scan_lock(void) {
-	return atomic_read(&scan_lock) == 1;
-}
-static void set_pkg_lock(void) {
-	atomic_set(&pkg_lock, 1);
-}
-static void set_scan_lock(void) {
-	atomic_set(&scan_lock, 1);
-}
-
 #define SYSTEM_PACKAGES_LIST_PATH "/data/system/packages.list"
-#define USER_DATA_PATH "/data/user_de/0"
-#define USER_DATA_PATH_LEN 288
-
-struct user_data_context {
-	struct dir_context ctx;
-	struct list_head *uid_list;
-};
 
 struct uid_data {
 	struct list_head list;
@@ -153,101 +130,6 @@ struct my_dir_context {
 #define FILLDIR_ACTOR_CONTINUE 0
 #define FILLDIR_ACTOR_STOP -EINVAL
 #endif
-
-FILLDIR_RETURN_TYPE user_data_actor(struct dir_context *ctx, const char *name,
-				     int namelen, loff_t off, u64 ino,
-				     unsigned int d_type)
-{
-	struct user_data_context *my_ctx =
-		container_of(ctx, struct user_data_context, ctx);
-
-	if (!my_ctx || !my_ctx->uid_list)
-		return FILLDIR_ACTOR_STOP;
-
-	if (!strncmp(name, "..", namelen) || !strncmp(name, ".", namelen))
-		return FILLDIR_ACTOR_CONTINUE;
-
-	if (d_type != DT_DIR)
-		return FILLDIR_ACTOR_CONTINUE;
-
-	if (namelen >= KSU_MAX_PACKAGE_NAME) {
-		pr_warn("Package name too long: %.*s\n", namelen, name);
-		return FILLDIR_ACTOR_CONTINUE;
-	}
-
-	char package_path[USER_DATA_PATH_LEN];
-	if (snprintf(package_path, sizeof(package_path), "%s/%.*s",
-		     USER_DATA_PATH, namelen, name) >= sizeof(package_path)) {
-		pr_err("Path too long for package: %.*s\n", namelen, name);
-		return FILLDIR_ACTOR_CONTINUE;
-	}
-
-	struct path path;
-	int err = kern_path(package_path, LOOKUP_FOLLOW, &path);
-	if (err) {
-		pr_debug("Package path lookup failed: %s (err: %d)\n", package_path, err);
-		return FILLDIR_ACTOR_CONTINUE;
-	}
-
-	struct kstat stat;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0) || defined(KSU_HAS_NEW_VFS_GETATTR)
-	err = vfs_getattr(&path, &stat, STATX_UID, AT_STATX_SYNC_AS_STAT);
-#else
-	err = vfs_getattr(&path, &stat);
-#endif
-	path_put(&path);
-
-	if (err) {
-		pr_debug("Failed to get attributes for: %s (err: %d)\n", package_path, err);
-		return FILLDIR_ACTOR_CONTINUE;
-	}
-
-	uid_t uid = from_kuid(&init_user_ns, stat.uid);
-	if (uid == (uid_t)-1) {
-		pr_warn("Invalid UID for package: %.*s\n", namelen, name);
-		return FILLDIR_ACTOR_CONTINUE;
-	}
-
-	struct uid_data *data = kzalloc(sizeof(struct uid_data), GFP_ATOMIC);
-	if (!data) {
-		pr_err("Failed to allocate memory for package: %.*s\n", namelen, name);
-		return FILLDIR_ACTOR_CONTINUE;
-	}
-
-	data->uid = uid;
-	size_t copy_len = min(namelen, KSU_MAX_PACKAGE_NAME - 1);
-	strncpy(data->package, name, copy_len);
-	data->package[copy_len] = '\0';
-
-	list_add_tail(&data->list, my_ctx->uid_list);
-
-	return FILLDIR_ACTOR_CONTINUE;
-}
-
-static int scan_user_data_for_uids(struct list_head *uid_list)
-{
-	struct file *dir_file;
-
-	if (!uid_list) {
-		return -EINVAL;
-	}
-
-	dir_file = ksu_filp_open_compat(USER_DATA_PATH, O_RDONLY, 0);
-	if (IS_ERR(dir_file)) {
-		pr_err("Failed to open %s, err: %ld\n", USER_DATA_PATH, PTR_ERR(dir_file));
-		return PTR_ERR(dir_file);
-	}
-
-	struct user_data_context ctx = {
-		.ctx.actor = user_data_actor,
-		.uid_list = uid_list,
-	};
-
-	iterate_dir(dir_file, &ctx.ctx);
-	filp_close(dir_file, NULL);
-
-	return 0;
-}
 
 static inline void print_iter(bool is_manager, char *dirpath)
 {
@@ -427,80 +309,58 @@ void track_throne(void)
 {
 	struct list_head uid_list;
 	struct file *fp;
-	int ret = 0;
 	INIT_LIST_HEAD(&uid_list);
 
-	pr_info("Scanning %s directory..\n", USER_DATA_PATH);
-	ret = scan_user_data_for_uids(&uid_list);
-	if (ret != 0 && !is_scan_lock()) {
-		pr_warn("Failed to scan %s directory, falling back to packages.list.tmp\n", USER_DATA_PATH);
-		fp = ksu_filp_open_compat(SYSTEM_PACKAGES_LIST_PATH, O_RDONLY, 0);
-		if (IS_ERR(fp)) {
-			pr_err("%s: open " SYSTEM_PACKAGES_LIST_PATH " failed: %ld\n", __func__, PTR_ERR(fp));
-			return;
-		}
-		
-		if (!is_pkg_lock()) {
-			pr_info_once("%s: locking to only read packages.list.tmp\n", __func__);
-			set_pkg_lock();
-		}
-
-		char chr = 0;
-		loff_t pos = 0;
-		loff_t line_start = 0;
-		char buf[KSU_MAX_PACKAGE_NAME];
-		for (;;) {
-			ssize_t count =
-				ksu_kernel_read_compat(fp, &chr, sizeof(chr), &pos);
-			if (count != sizeof(chr))
-				break;
-			if (chr != '\n')
-				continue;
-
-			count = ksu_kernel_read_compat(fp, buf, sizeof(buf),
-						       &line_start);
-
-			struct uid_data *data =
-				kzalloc(sizeof(struct uid_data), GFP_ATOMIC);
-			if (!data) {
-				filp_close(fp, 0);
-				goto out;
-			}
-
-			char *tmp = buf;
-			const char *delim = " ";
-			char *package = strsep(&tmp, delim);
-			char *uid = strsep(&tmp, delim);
-			if (!uid || !package) {
-				pr_err("update_uid: package or uid is NULL!\n");
-				break;
-			}
-
-			u32 res;
-			if (kstrtou32(uid, 10, &res)) {
-				pr_err("update_uid: uid parse err\n");
-				break;
-			}
-			data->uid = res;
-			strncpy(data->package, package, KSU_MAX_PACKAGE_NAME);
-			list_add_tail(&data->list, &uid_list);
-			// reset line start
-			line_start = pos;
-		}
-		filp_close(fp, 0);
-	} else if (!is_pkg_lock()) {
-		pr_info("Scanned %zu package(s) from user data directory.\n", list_count_nodes(&uid_list));
-		if (!is_scan_lock()) {
-			pr_info_once("%s: locking to only read %s directory.\n", __func__, USER_DATA_PATH); 
-			set_scan_lock();
-		}
-	}
-	
-	// Precautions, incase both of them failed.
-	if (!is_pkg_lock() && !is_scan_lock()) {
-		pr_err("Failed to read %s or %s\n", SYSTEM_PACKAGES_LIST_PATH, USER_DATA_PATH);
+	fp = ksu_filp_open_compat(SYSTEM_PACKAGES_LIST_PATH, O_RDONLY, 0);
+	if (IS_ERR(fp)) {
+		pr_err("%s: open " SYSTEM_PACKAGES_LIST_PATH " failed: %ld\n", __func__, PTR_ERR(fp));
 		return;
 	}
+
+	char chr = 0;
+	loff_t pos = 0;
+	loff_t line_start = 0;
+	char buf[KSU_MAX_PACKAGE_NAME];
+
+	for (;;) {
+		ssize_t count =
+			ksu_kernel_read_compat(fp, &chr, sizeof(chr), &pos);
+		if (count != sizeof(chr))
+			break;
+		if (chr != '\n')
+			continue;
+
+		count = ksu_kernel_read_compat(fp, buf, sizeof(buf),
+					       &line_start);
+
+		struct uid_data *data =
+			kzalloc(sizeof(struct uid_data), GFP_ATOMIC);
+		if (!data) {
+			filp_close(fp, 0);
+			goto out;
+		}
+
+		char *tmp = buf;
+		const char *delim = " ";
+		char *package = strsep(&tmp, delim);
+		char *uid = strsep(&tmp, delim);
+		if (!uid || !package) {
+			pr_err("update_uid: package or uid is NULL!\n");
+			break;
+		}
+
+		u32 res;
+		if (kstrtou32(uid, 10, &res)) {
+			pr_err("update_uid: uid parse err\n");
+			break;
+		}
+		data->uid = res;
+		strncpy(data->package, package, KSU_MAX_PACKAGE_NAME);
+		list_add_tail(&data->list, &uid_list);
+		// reset line start
+		line_start = pos;
+	}
+	filp_close(fp, 0);
 
 	// now update uid list
 	struct uid_data *np;
