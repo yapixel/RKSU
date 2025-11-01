@@ -20,4 +20,6 @@ bool is_zygote(void *cred);
 
 void apply_kernelsu_rules(void);
 
+u32 ksu_get_devpts_sid(void);
+
 #endif
