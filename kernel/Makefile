@@ -21,8 +21,11 @@ obj-$(CONFIG_KSU) += kernelsu.o
 KDIR := $(KDIR)
 MDIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
+# Stop printing unless ddk environment
+ifneq ($(KDIR),)
 $(info -- KDIR: $(KDIR))
 $(info -- MDIR: $(MDIR))
+endif
 
 # Check if this is a git repository
 # For in-tree build: check $(srctree)/$(src)/../.git
