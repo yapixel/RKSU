@@ -42,8 +42,7 @@ extern void ksu_ksud_exit(void);
 
 int __init kernelsu_init(void)
 {
-	/* Print quirks for easier debug */
-	pr_info("Initialized on: %s (%s) with kernelsu driver version: %u\n",
+	pr_info("Initialized on: %s (%s) with driver version: %u\n",
 		UTS_RELEASE, UTS_MACHINE, KSU_VERSION);
 
 #ifdef CONFIG_KSU_DEBUG

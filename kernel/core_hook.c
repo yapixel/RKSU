@@ -73,7 +73,9 @@ static inline bool is_unsupported_uid(uid_t uid)
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
-static struct group_info root_groups = { .usage = REFCOUNT_INIT(2), };
+static struct group_info root_groups = {
+	.usage = REFCOUNT_INIT(2),
+};
 #else
 static struct group_info root_groups = { .usage = ATOMIC_INIT(2) };
 #endif
@@ -137,12 +139,12 @@ static void disable_seccomp(struct task_struct *tsk)
 #ifdef CONFIG_SECCOMP
 	tsk->seccomp.mode = 0;
 	if (tsk->seccomp.filter) {
-	// 5.9+ have filter_count and use seccomp_filter_release
+		// 5.9+ have filter_count and use seccomp_filter_release
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 		seccomp_filter_release(tsk);
 		atomic_set(&tsk->seccomp.filter_count, 0);
 #else
-	// for 6.11+ kernel support?
+		// for 6.11+ kernel support?
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 		put_seccomp_filter(tsk);
 #endif
@@ -160,15 +162,14 @@ void escape_to_root(void)
 		pr_warn("Already root, don't escape!\n");
 		return;
 	}
-	
+
 	newcreds = prepare_creds();
 	if (newcreds == NULL) {
 		pr_err("%s: failed to allocate new cred.\n", __func__);
 		return;
 	}
 
-	struct root_profile *profile =
-		ksu_get_root_profile(newcreds->uid.val);
+	struct root_profile *profile = ksu_get_root_profile(newcreds->uid.val);
 
 	newcreds->uid.val = profile->uid;
 	newcreds->suid.val = profile->uid;
@@ -187,7 +188,8 @@ void escape_to_root(void)
 	// setup capabilities
 	// we need CAP_DAC_READ_SEARCH becuase `/data/adb/ksud` is not accessible for non root process
 	// we add it here but don't add it to cap_inhertiable, it would be dropped automaticly after exec!
-	u64 cap_for_ksud = profile->capabilities.effective | CAP_DAC_READ_SEARCH;
+	u64 cap_for_ksud =
+		profile->capabilities.effective | CAP_DAC_READ_SEARCH;
 	memcpy(&newcreds->cap_effective, &cap_for_ksud,
 	       sizeof(newcreds->cap_effective));
 	memcpy(&newcreds->cap_permitted, &profile->capabilities.effective,
@@ -205,7 +207,7 @@ void escape_to_root(void)
 	setup_selinux(profile->selinux_domain);
 }
 
-static void nuke_ext4_sysfs(void) 
+static void nuke_ext4_sysfs(void)
 {
 #ifdef CONFIG_EXT4_FS
 	struct path path;
@@ -215,8 +217,8 @@ static void nuke_ext4_sysfs(void)
 		return;
 	}
 
-	struct super_block* sb = path.dentry->d_inode->i_sb;
-	const char* name = sb->s_type->name;
+	struct super_block *sb = path.dentry->d_inode->i_sb;
+	const char *name = sb->s_type->name;
 	if (strcmp(name, "ext4") != 0) {
 		pr_info("nuke but module aren't mounted\n");
 		path_put(&path);
@@ -241,9 +243,9 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
 		goto skip_check;
 
 	uid_t manager_uid = ksu_get_manager_uid();
-	if (current_uid_val != manager_uid && 
-		current_uid_val % 100000 == manager_uid) {
-			ksu_set_manager_uid(current_uid_val);
+	if (current_uid_val != manager_uid &&
+	    current_uid_val % 100000 == manager_uid) {
+		ksu_set_manager_uid(current_uid_val);
 	}
 
 skip_check:
@@ -302,8 +304,7 @@ skip_check:
 #ifdef MODULE
 		flags |= 0x1;
 #endif
-		if (arg4 &&
-		    copy_to_user(arg4, &flags, sizeof(flags))) {
+		if (arg4 && copy_to_user(arg4, &flags, sizeof(flags))) {
 			pr_err("prctl reply error, cmd: %lu\n", arg2);
 		}
 		return 0;
@@ -524,12 +525,13 @@ static bool should_umount(struct path *path)
 	return false;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) || defined(KSU_HAS_PATH_UMOUNT)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) ||                           \
+	defined(KSU_HAS_PATH_UMOUNT)
 static int ksu_path_umount(struct path *path, int flags)
 {
 	return path_umount(path, flags);
 }
-#define ksu_umount_mnt(__unused, path, flags)	(ksu_path_umount(path, flags))
+#define ksu_umount_mnt(__unused, path, flags) (ksu_path_umount(path, flags))
 #else
 static int ksu_sys_umount(const char *mnt, int flags)
 {
@@ -549,12 +551,12 @@ static int ksu_sys_umount(const char *mnt, int flags)
 	return ret;
 }
 
-#define ksu_umount_mnt(mnt, __unused, flags)		\
-	({						\
-		int ret;				\
-		path_put(__unused);			\
-		ret = ksu_sys_umount(mnt, flags);	\
-		ret;					\
+#define ksu_umount_mnt(mnt, __unused, flags)                                   \
+	({                                                                     \
+		int ret;                                                       \
+		path_put(__unused);                                            \
+		ret = ksu_sys_umount(mnt, flags);                              \
+		ret;                                                           \
 	})
 
 #endif
@@ -671,7 +673,8 @@ static int ksu_task_fix_setuid(struct cred *new, const struct cred *old,
 }
 
 // kernel 4.4 and 4.9
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) ||                           \
+	defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
 static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
 			      unsigned perm)
 {
@@ -692,7 +695,8 @@ static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
 static struct security_hook_list ksu_hooks[] = {
 	LSM_HOOK_INIT(task_prctl, ksu_task_prctl),
 	LSM_HOOK_INIT(task_fix_setuid, ksu_task_fix_setuid),
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) ||                           \
+	defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
 	LSM_HOOK_INIT(key_permission, ksu_key_permission)
 #endif
 };

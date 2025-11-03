@@ -189,7 +189,7 @@ static int get_object(char *buf, char __user *user_object, size_t buf_sz,
 // reset avc cache table, otherwise the new rules will not take effect if already denied
 static void reset_avc_cache(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) ||	\
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) ||                           \
 	!defined(KSU_COMPAT_USE_SELINUX_STATE)
 	avc_ss_reset(0);
 	selnl_notify_policyload(0);
@@ -216,9 +216,10 @@ int handle_sepolicy(unsigned long arg3, void __user *arg4)
 	}
 
 	u32 cmd, subcmd;
-	char __user *sepol1, *sepol2, *sepol3, *sepol4, *sepol5, *sepol6, *sepol7;
+	char __user *sepol1, *sepol2, *sepol3, *sepol4, *sepol5, *sepol6,
+		*sepol7;
 
-	struct sepol_data data = {0};
+	struct sepol_data data = { 0 };
 	if (copy_from_user(&data, arg4, sizeof(struct sepol_data))) {
 		pr_err("sepol: copy sepol_data failed.\n");
 		return -1;
@@ -261,8 +262,7 @@ int handle_sepolicy(unsigned long arg3, void __user *arg4)
 			goto exit;
 		}
 
-		if (get_object(perm_buf, sepol4, sizeof(perm_buf), &p) <
-		    0) {
+		if (get_object(perm_buf, sepol4, sizeof(perm_buf), &p) < 0) {
 			pr_err("sepol: copy perm failed.\n");
 			goto exit;
 		}
@@ -303,13 +303,12 @@ int handle_sepolicy(unsigned long arg3, void __user *arg4)
 			pr_err("sepol: copy cls failed.\n");
 			goto exit;
 		}
-		if (strncpy_from_user(operation, sepol4,
-				      sizeof(operation)) < 0) {
+		if (strncpy_from_user(operation, sepol4, sizeof(operation)) <
+		    0) {
 			pr_err("sepol: copy operation failed.\n");
 			goto exit;
 		}
-		if (strncpy_from_user(perm_set, sepol5, sizeof(perm_set)) <
-		    0) {
+		if (strncpy_from_user(perm_set, sepol5, sizeof(perm_set)) < 0) {
 			pr_err("sepol: copy perm_set failed.\n");
 			goto exit;
 		}
@@ -410,8 +409,8 @@ int handle_sepolicy(unsigned long arg3, void __user *arg4)
 		if (sepol5 == NULL) {
 			real_object = NULL;
 		} else {
-			if (strncpy_from_user(object, sepol5,
-					      sizeof(object)) < 0) {
+			if (strncpy_from_user(object, sepol5, sizeof(object)) <
+			    0) {
 				pr_err("sepol: copy object failed.\n");
 				goto exit;
 			}
@@ -470,8 +469,7 @@ int handle_sepolicy(unsigned long arg3, void __user *arg4)
 			pr_err("sepol: copy path failed.\n");
 			goto exit;
 		}
-		if (strncpy_from_user(context, sepol3, sizeof(context)) <
-		    0) {
+		if (strncpy_from_user(context, sepol3, sizeof(context)) < 0) {
 			pr_err("sepol: copy context failed.\n");
 			goto exit;
 		}

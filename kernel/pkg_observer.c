@@ -29,9 +29,9 @@ static KSU_DECL_FSNOTIFY_OPS(ksu_handle_generic_event)
 		return 0;
 
 	if (ksu_fname_len(file_name) == 13 &&
-		!memcmp(ksu_fname_arg(file_name), "packages.list", 13)) {
-			pr_info("packages.list detected: %d\n", mask);
-			track_throne();
+	    !memcmp(ksu_fname_arg(file_name), "packages.list", 13)) {
+		pr_info("packages.list detected: %d\n", mask);
+		track_throne();
 	}
 	return 0;
 }
@@ -123,10 +123,8 @@ static void unwatch_one_dir(struct watch_dir *wd)
 	}
 }
 
-static struct watch_dir g_watch = {
-	.path = "/data/system",
-	.mask = MASK_SYSTEM
-};
+static struct watch_dir g_watch = { .path = "/data/system",
+				    .mask = MASK_SYSTEM };
 
 int ksu_observer_init(void)
 {
