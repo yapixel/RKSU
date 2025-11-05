@@ -257,7 +257,7 @@ pub fn prune_modules() -> Result<()> {
             if uninstaller.exists()
                 && let Err(e) = exec_script(uninstaller, true)
             {
-                warn!("Failed to exec uninstaller: {}", e);
+                warn!("Failed to exec uninstaller: {e}");
             }
 
             if let Err(e) = remove_dir_all(module) {
@@ -284,7 +284,7 @@ pub fn handle_updated_modules() -> Result<()> {
             if old_dir.exists()
                 && let Err(e) = remove_dir_all(&old_dir)
             {
-                log::error!("Failed to remove old {}: {}", old_dir.display(), e);
+                    log::error!("Failed to remove old {}: {}", old_dir.display(), e);
             }
             if let Err(e) = rename(module, &old_dir) {
                 log::error!("Failed to move new module {}: {}", module.display(), e);
@@ -479,18 +479,13 @@ fn _list_modules(path: &str) -> Vec<HashMap<String, String>> {
             }
         };
 
+        let dir_id = entry.file_name().to_string_lossy().to_string();
+        module_prop_map.insert("dir_id".to_owned(), dir_id.clone());
+
         // If id is missing or empty, use directory name as fallback
         if !module_prop_map.contains_key("id") || module_prop_map["id"].is_empty() {
-            match entry.file_name().to_str() {
-                Some(id) => {
-                    info!("Use dir name as module id: {id}");
-                    module_prop_map.insert("id".to_owned(), id.to_owned());
-                }
-                _ => {
-                    info!("Failed to get module id from dir name");
-                    continue;
-                }
-            }
+            info!("Use dir name as module id: {dir_id}");
+            module_prop_map.insert("id".to_owned(), dir_id.clone());
         }
 
         // Add enabled, update, remove flags
