@@ -128,7 +128,7 @@ pub fn init() -> Result<()> {
     // Setup kernel log first
     setup_kmsg();
 
-    log::info!("{}", s!("Hello, KernelSU!"));
+    log::info!("{}", s!("Hello, RKSU!"));
 
     // mount /proc and /sys to access kernel interface
     let _dontdrop = prepare_mount();
@@ -137,7 +137,7 @@ pub fn init() -> Result<()> {
     unlimit_kmsg();
 
     if has_kernelsu() {
-        log::info!("{}", s!("KernelSU may be already loaded in kernel, skip!"));
+        log::info!("{}", s!("KernelSU maybe already loaded in kernel, skip!"));
     } else {
         log::info!("{}", s!("Loading kernelsu.ko.."));
         if let Err(e) = load_module(s!("/kernelsu.ko")) {
