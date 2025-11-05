@@ -322,10 +322,10 @@ void ksu_sucompat_disable(void)
 // sucompat: permited process can execute 'su' to gain root access.
 void ksu_sucompat_init(void)
 {
-#ifdef KSU_KPROBE_HOOK
 	if (ksu_register_feature_handler(&su_compat_handler)) {
 		pr_err("Failed to register su_compat feature handler\n");
 	}
+#ifdef KSU_KPROBE_HOOK
 	if (ksu_su_compat_enabled) {
 		ksu_sucompat_enable();
 	}
@@ -341,9 +341,9 @@ void ksu_sucompat_exit(void)
 	if (ksu_su_compat_enabled) {
 		ksu_sucompat_disable();
 	}
-	ksu_unregister_feature_handler(KSU_FEATURE_SU_COMPAT);
 #else
 	ksu_su_compat_enabled = false;
 	pr_info("deinit sucompat\n");
 #endif
+	ksu_unregister_feature_handler(KSU_FEATURE_SU_COMPAT);
 }

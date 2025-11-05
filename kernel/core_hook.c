@@ -375,7 +375,6 @@ static void umount_tw_func(struct callback_head *cb)
 
 int ksu_handle_setuid(struct cred *new, const struct cred *old)
 {
-	struct umount_tw *tw;
 	if (!new || !old) {
 		return 0;
 	}
@@ -454,8 +453,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
 	// check old process's selinux context, if it is not zygote, ignore it!
 	// because some su apps may setuid to untrusted_app but they are in global mount namespace
 	// when we umount for such process, that is a disaster!
-	bool is_zygote_child = is_zygote(old->security);
-	if (!is_zygote_child) {
+	if (!is_zygote(old->security)) {
 		pr_info("handle umount ignore non zygote child: %d\n",
 			current->pid);
 		return 0;
@@ -465,7 +463,9 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
 	pr_info("handle umount for uid: %d, pid: %d\n", new_uid.val,
 		current->pid);
 #endif
+
 #if defined(MODULE) || defined(KSU_KPROBE_HOOK)
+	struct umount_tw *tw;
 	tw = kmalloc(sizeof(*tw), GFP_ATOMIC);
 	if (!tw)
 		return 0;
@@ -478,6 +478,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
 #else
 	int err = task_work_add(current, &tw->cb, true);
 #endif
+
 	if (err) {
 		if (tw->old_cred) {
 			put_cred(tw->old_cred);
@@ -522,8 +523,8 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 }
 
 // -- For old kernel compat?
-#ifndef MODULE
-static int __maybe_unused ksu_task_fix_setuid(struct cred *new,
+#if !defined(MODULE) && !defined(KSU_KPROBE_HOOK)
+static int ksu_task_fix_setuid(struct cred *new,
 					      const struct cred *old, int flags)
 {
 	return ksu_handle_setuid(new, old);
@@ -548,9 +549,7 @@ static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
 }
 #endif
 
-#ifndef KSU_KPROBE_HOOK
 #include <linux/lsm_hooks.h>
-
 static struct security_hook_list ksu_hooks[] = {
 	LSM_HOOK_INIT(task_fix_setuid, ksu_task_fix_setuid),
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) ||                           \
@@ -582,7 +581,6 @@ static void ksu_lsm_hook_init(void)
 static void ksu_lsm_hook_init(void)
 {
 }
-#endif
 #endif
 
 // -- For KPROBE and LKM handler
