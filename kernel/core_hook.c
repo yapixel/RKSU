@@ -401,7 +401,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 	if (ksu_get_manager_uid() == new_uid.val) {
-		pr_info("install fd for: %d\n", new_uid.val);
+		pr_info("install fd for ksu manager(uid=%d)\n", new_uid.val);
 		ksu_install_fd();
 		spin_lock_irq(&current->sighand->siglock);
 		ksu_seccomp_allow_cache(current->seccomp.filter, __NR_reboot);
@@ -425,8 +425,8 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
 		spin_unlock_irq(&current->sighand->siglock);
 
 		if (ksu_get_manager_uid() == new_uid.val) {
-			pr_info("install fd for: %d\n", new_uid.val);
-			ksu_install_fd(); // install fd for ksu manager
+			pr_info("install fd for ksu manager(uid=%d)\n", new_uid.val);
+			ksu_install_fd();
 		}
 
 		return 0;
@@ -507,13 +507,10 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 	// Check if this is a request to install KSU fd
 	if (magic2 == KSU_INSTALL_MAGIC2) {
 		int fd = ksu_install_fd();
-		pr_info("[pid: %d] install ksu fd: %d\n", current->pid, fd);
-
 		// downstream: dereference all arg usage!
 		if (copy_to_user((void __user *)*arg, &fd, sizeof(fd))) {
 			pr_err("install ksu fd reply err\n");
 		}
-
 		return 0;
 	}
 
@@ -567,7 +564,6 @@ static const struct lsm_id ksu_lsmid = {
 
 static void ksu_lsm_hook_init(void)
 {
-	pr_info("Initializing LSM hooks..\n");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
 	security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), &ksu_lsmid);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
@@ -576,6 +572,7 @@ static void ksu_lsm_hook_init(void)
 	// https://elixir.bootlin.com/linux/v4.10.17/source/include/linux/lsm_hooks.h#L1892
 	security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks));
 #endif
+	pr_info("LSM hooks initialized.\n");
 }
 #else
 static void ksu_lsm_hook_init(void)

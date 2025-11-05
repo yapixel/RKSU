@@ -30,7 +30,7 @@ static KSU_DECL_FSNOTIFY_OPS(ksu_handle_generic_event)
 
 	if (ksu_fname_len(file_name) == 13 &&
 	    !memcmp(ksu_fname_arg(file_name), "packages.list", 13)) {
-		pr_info("packages.list detected: %d\n", mask);
+		pr_info("packages.list detected (mask=%d)\n", mask);
 		track_throne();
 	}
 	return 0;
@@ -139,7 +139,7 @@ int ksu_observer_init(void)
 		return PTR_ERR(g);
 
 	ret = watch_one_dir(&g_watch);
-	pr_info("%s done.\n", __func__);
+	pr_info("%s: done.\n", __func__);
 	return 0;
 }
 

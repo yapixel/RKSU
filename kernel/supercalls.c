@@ -480,9 +480,7 @@ int ksu_install_fd(void)
 	// Install fd
 	fd_install(fd, filp);
 
-#ifdef CONFIG_KSU_DEBUG
-	pr_info("ksu fd installed: %d for pid %d\n", fd, current->pid);
-#endif
+	pr_info("ksu fd [%d] installed for pid %d\n", fd, current->pid);
 
 	return fd;
 }
