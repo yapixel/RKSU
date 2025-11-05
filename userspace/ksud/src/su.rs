@@ -72,7 +72,6 @@ pub fn root_shell() -> Result<()> {
     // we are root now, this was set in kernel!
 
     use anyhow::anyhow;
-    use std::ffi::CString;
     use std::str;
 
     let env_args: Vec<String> = env::args().collect();
