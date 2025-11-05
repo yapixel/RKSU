@@ -7,14 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -37,28 +34,25 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import com.ramcosta.composedestinations.DestinationsNavHost
 import com.ramcosta.composedestinations.animations.NavHostAnimatedDestinationStyle
-import com.ramcosta.composedestinations.generated.destinations.ExecuteModuleActionScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.FlashScreenDestination
 import com.ramcosta.composedestinations.generated.NavGraphs
 import com.ramcosta.composedestinations.utils.isRouteOnBackStackAsState
 import com.ramcosta.composedestinations.utils.rememberDestinationsNavigator
 import me.weishu.kernelsu.Natives
-import me.weishu.kernelsu.ksuApp
 import me.weishu.kernelsu.ui.screen.BottomBarDestination
-import me.weishu.kernelsu.ui.screen.FlashIt
 import me.weishu.kernelsu.ui.theme.KernelSUTheme
 import me.weishu.kernelsu.ui.util.LocalSnackbarHost
 import me.weishu.kernelsu.ui.util.rootAvailable
 import me.weishu.kernelsu.ui.util.install
-import me.weishu.kernelsu.ui.util.*
+import me.weishu.kernelsu.ui.screen.FlashIt
 
 class MainActivity : ComponentActivity() {
 
@@ -72,8 +66,7 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
 
-        val isManager = Natives.becomeManager(ksuApp.packageName)
-        if (isManager) install()
+        if (Natives.isManager) install()
 
         // Check if launched with a ZIP file
         val zipUri: ArrayList<Uri>? = if (intent.data != null) {
@@ -91,17 +84,9 @@ class MainActivity : ComponentActivity() {
             KernelSUTheme {
                 val navController = rememberNavController()
                 val snackBarHostState = remember { SnackbarHostState() }
-                val currentDestination = navController.currentBackStackEntryAsState()?.value?.destination
-
-                val showBottomBar = when (currentDestination?.route) {
-                    ExecuteModuleActionScreenDestination.route -> false // Hide for ExecuteModuleActionScreen
-                    else -> true
-                }
-
                 val bottomBarRoutes = remember {
                     BottomBarDestination.entries.map { it.direction.route }.toSet()
                 }
-
                 val navigator = navController.rememberDestinationsNavigator()
 
                 LaunchedEffect(zipUri) {
@@ -115,15 +100,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
-                    bottomBar = {
-                        AnimatedVisibility(
-                            visible = showBottomBar,
-                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-                        ) {
-                            BottomBar(navController)
-                        }
-                    },
+                    bottomBar = { BottomBar(navController) },
                     contentWindowInsets = WindowInsets(0, 0, 0, 0)
                 ) { innerPadding ->
                     CompositionLocalProvider(
@@ -185,8 +162,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun BottomBar(navController: NavHostController) {
     val navigator = navController.rememberDestinationsNavigator()
-    val isManager = Natives.becomeManager(ksuApp.packageName)
-    val fullFeatured = isManager && !Natives.requireNewKernel() && rootAvailable()
+    val fullFeatured = Natives.isManager && !Natives.requireNewKernel() && rootAvailable()
     NavigationBar(
         tonalElevation = 8.dp,
         windowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout).only(

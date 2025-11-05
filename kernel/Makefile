@@ -5,6 +5,8 @@ kernelsu-objs += sucompat.o
 kernelsu-objs += throne_tracker.o
 kernelsu-objs += pkg_observer.o
 kernelsu-objs += core_hook.o
+kernelsu-objs += supercalls.o
+kernelsu-objs += feature.o
 kernelsu-objs += ksud.o
 kernelsu-objs += embed_ksud.o
 kernelsu-objs += kernel_compat.o
@@ -44,8 +46,7 @@ endif
 
 # Calculate version if git version is available
 ifdef KSU_GIT_VERSION_VALID
-# ksu_version: major * 10000 + git version + 200 for historical reasons
-$(eval KSU_VERSION=$(shell expr 10000 + $(KSU_GIT_VERSION) + 200))
+$(eval KSU_VERSION=$(shell expr 20000 + $(KSU_GIT_VERSION)))
 $(info -- KernelSU version: $(KSU_VERSION))
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 else
@@ -59,7 +60,7 @@ ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)
 $(info -- KernelSU: CONFIG_KSU_MANUAL_HOOK)
 else
 $(info -- KernelSU: CONFIG_KSU_KPROBES_HOOK)
-ccflags-y += -DCONFIG_KSU_KPROBES_HOOK
+ccflags-y += -DKSU_KPROBE_HOOK
 endif
 
 # SELinux drivers check
