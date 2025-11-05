@@ -507,7 +507,7 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 	// Check if this is a request to install KSU fd
 	if (magic2 == KSU_INSTALL_MAGIC2) {
 		int fd = ksu_install_fd();
-		pr_info("[%d] install ksu fd: %d\n", current->pid, fd);
+		pr_info("[pid: %d] install ksu fd: %d\n", current->pid, fd);
 
 		// downstream: dereference all arg usage!
 		if (copy_to_user((void __user *)*arg, &fd, sizeof(fd))) {

@@ -417,7 +417,7 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd,
 	int i;
 
 #ifdef CONFIG_KSU_DEBUG
-	pr_info("ksu ioctl: cmd=0x%x from uid=%d\n", cmd, current_uid().val);
+	pr_info("ksu_ioctl: cmd=0x%x from uid=%d\n", cmd, current_uid().val);
 #endif
 
 	for (i = 0; ksu_ioctl_handlers[i].handler; i++) {
@@ -425,7 +425,7 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd,
 			// Check permission first
 			if (ksu_ioctl_handlers[i].perm_check &&
 			    !ksu_ioctl_handlers[i].perm_check()) {
-				pr_warn("ksu ioctl: permission denied for cmd=0x%x uid=%d\n",
+				pr_warn("ksu_ioctl: permission denied for cmd=0x%x uid=%d\n",
 					cmd, current_uid().val);
 				return -EPERM;
 			}
@@ -434,14 +434,16 @@ static long anon_ksu_ioctl(struct file *filp, unsigned int cmd,
 		}
 	}
 
-	pr_warn("ksu ioctl: unsupported command 0x%x\n", cmd);
+	pr_warn("ksu_ioctl: unsupported command 0x%x\n", cmd);
 	return -ENOTTY;
 }
 
 // File release handler
 static int anon_ksu_release(struct inode *inode, struct file *filp)
 {
+#ifdef CONFIG_KSU_DEBUG
 	pr_info("ksu fd released\n");
+#endif
 	return 0;
 }
 
@@ -478,7 +480,9 @@ int ksu_install_fd(void)
 	// Install fd
 	fd_install(fd, filp);
 
+#ifdef CONFIG_KSU_DEBUG
 	pr_info("ksu fd installed: %d for pid %d\n", fd, current->pid);
+#endif
 
 	return fd;
 }
