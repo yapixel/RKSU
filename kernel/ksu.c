@@ -5,7 +5,6 @@
 #include <generated/utsrelease.h>
 #include <generated/compile.h>
 #include <linux/version.h> /* LINUX_VERSION_CODE, KERNEL_VERSION macros */
-#include <linux/workqueue.h>
 
 #include "allowlist.h"
 #include "arch.h"
@@ -14,13 +13,6 @@
 #include "klog.h" // IWYU pragma: keep
 #include "ksu.h"
 #include "throne_tracker.h"
-
-static struct workqueue_struct *ksu_workqueue;
-
-bool ksu_queue_work(struct work_struct *work)
-{
-	return queue_work(ksu_workqueue, work);
-}
 
 extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
 					void *argv, void *envp, int *flags);
@@ -63,8 +55,6 @@ int __init kernelsu_init(void)
 
 	ksu_core_init();
 
-	ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
-
 	ksu_allowlist_init();
 
 	ksu_throne_tracker_init();
@@ -90,8 +80,6 @@ void kernelsu_exit(void)
 	ksu_throne_tracker_exit();
 
 	ksu_observer_exit();
-
-	destroy_workqueue(ksu_workqueue);
 
 #ifdef KSU_KPROBE_HOOK
 	ksu_ksud_exit();
