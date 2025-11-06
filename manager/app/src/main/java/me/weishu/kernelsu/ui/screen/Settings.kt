@@ -180,34 +180,32 @@ fun SettingScreen(navigator: DestinationsNavigator) {
                     }
                 }
 
-                if (Natives.version >= Natives.MINIMAL_SUPPORTED_SU_COMPAT) {
-                    var isSuDisabled by rememberSaveable {
-                        mutableStateOf(!Natives.isSuEnabled())
+                var isSuDisabled by rememberSaveable {
+                    mutableStateOf(!Natives.isSuEnabled())
+                }
+                SwitchItem(
+                    icon = Icons.Filled.RemoveModerator,
+                    title = stringResource(id = R.string.settings_disable_su),
+                    summary = stringResource(id = R.string.settings_disable_su_summary),
+                    checked = isSuDisabled,
+                ) { checked ->
+                    val shouldEnable = !checked
+                    if (Natives.setSuEnabled(shouldEnable)) {
+                        isSuDisabled = !shouldEnable
                     }
-                    SwitchItem(
-                        icon = Icons.Filled.RemoveModerator,
-                        title = stringResource(id = R.string.settings_disable_su),
-                        summary = stringResource(id = R.string.settings_disable_su_summary),
-                        checked = isSuDisabled,
-                    ) { checked ->
-                        val shouldEnable = !checked
-                        if (Natives.setSuEnabled(shouldEnable)) {
-                            isSuDisabled = !shouldEnable
-                        }
-                    }
-                    var isKernelUmountDisabled by rememberSaveable {
-                        mutableStateOf(!Natives.isKernelUmountEnabled())
-                    }
-                    SwitchItem(
-                        icon = Icons.Filled.FolderOff,
-                        title = stringResource(id = R.string.settings_disable_kernel_umount),
-                        summary = stringResource(id = R.string.settings_disable_kernel_umount_summary),
-                        checked = isKernelUmountDisabled,
-                    ) { checked ->
-                        val shouldEnable = !checked
-                        if (Natives.setKernelUmountEnabled(shouldEnable)) {
-                            isKernelUmountDisabled = !shouldEnable
-                        }
+                }
+                var isKernelUmountDisabled by rememberSaveable {
+                    mutableStateOf(!Natives.isKernelUmountEnabled())
+                }
+                SwitchItem(
+                    icon = Icons.Filled.FolderOff,
+                    title = stringResource(id = R.string.settings_disable_kernel_umount),
+                    summary = stringResource(id = R.string.settings_disable_kernel_umount_summary),
+                    checked = isKernelUmountDisabled,
+                ) { checked ->
+                    val shouldEnable = !checked
+                    if (Natives.setKernelUmountEnabled(shouldEnable)) {
+                        isKernelUmountDisabled = !shouldEnable
                     }
                 }
 
