@@ -97,7 +97,7 @@ jobs:
           export MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py
           export UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py
           cd $GITHUB_WORKSPACE/KernelSU
-          export VERSION=$(($(git rev-list --count HEAD) + 10200))
+          export VERSION=$(($(git rev-list --count HEAD) + 20000))
           echo "VERSION: $VERSION"
           cd -
           bash $GITHUB_WORKSPACE/KernelSU/.github/scripts/build_a12.sh

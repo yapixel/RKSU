@@ -80,7 +80,7 @@ jobs:
           cd $KERNEL_ROOT && git apply $GITHUB_WORKSPACE/KernelSU/.github/patches/5.15/*.patch || echo "[-] No patch found"
           echo "[+] KernelSU setup done."
           cd $GITHUB_WORKSPACE/KernelSU
-          VERSION=$(($(git rev-list --count HEAD) + 10200))
+          VERSION=$(($(git rev-list --count HEAD) + 20000))
           echo "VERSION: $VERSION"
           echo "kernelsu_version=$VERSION" >> $GITHUB_ENV
 
